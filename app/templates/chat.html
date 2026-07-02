@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FastAPI Private Chat</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Poppins", sans-serif;
+      background: linear-gradient(135deg, #6a11cb, #2575fc);
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    h2 {
+      color: white;
+      margin-bottom: 15px;
+    }
+
+    .chat-container {
+      width: 420px;
+      height: 550px;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #chat-box {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      background: #f7f9fc;
+    }
+
+    .message {
+      max-width: 75%;
+      padding: 10px 14px;
+      margin: 6px 0;
+      border-radius: 18px;
+      word-wrap: break-word;
+      line-height: 1.4;
+      font-size: 14px;
+    }
+
+    .sent {
+      align-self: flex-end;
+      background: #007bff;
+      color: white;
+      border-bottom-right-radius: 2px;
+    }
+
+    .received {
+      align-self: flex-start;
+      background: #e4e6eb;
+      color: #333;
+      border-bottom-left-radius: 2px;
+    }
+
+    .system {
+      align-self: center;
+      background: #ffe08a;
+      color: #222;
+      font-style: italic;
+      border-radius: 10px;
+      padding: 5px 10px;
+      font-size: 13px;
+    }
+
+    .input-area {
+      display: flex;
+      border-top: 1px solid #ddd;
+      background: #fff;
+      padding: 10px;
+      align-items: center;
+      gap: 5px;
+    }
+
+    input {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 20px;
+      outline: none;
+      font-size: 14px;
+    }
+
+    #username {
+      width: 140px;
+    }
+
+    #receiver {
+      width: 120px;
+    }
+
+    #message-input {
+      flex: 1;
+    }
+
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    #connect-area {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h2>💬 FastAPI Private Chat</h2>
+
+  <div id="connect-area">
+    <input type="text" id="username" placeholder="Your name">
+    <button id="connect-btn">Connect</button>
+  </div>
+
+  <div class="chat-container">
+    <div id="chat-box"></div>
+
+    <div class="input-area" id="chat-controls" style="display: none;">
+      <input type="text" id="receiver" placeholder="To user...">
+      <input type="text" id="message-input" placeholder="Type your message...">
+      <button id="send-btn">Send</button>
+    </div>
+  </div>
+
+  <script>
+    let ws = null;
+
+    const connectBtn = document.getElementById("connect-btn");
+    const chatBox = document.getElementById("chat-box");
+    const messageInput = document.getElementById("message-input");
+    const sendBtn = document.getElementById("send-btn");
+    const usernameInput = document.getElementById("username");
+    const receiverInput = document.getElementById("receiver");
+    const chatControls = document.getElementById("chat-controls");
+    const connectArea = document.getElementById("connect-area");
+
+    connectBtn.onclick = () => {
+      const username = usernameInput.value.trim();
+      if (!username) return alert("Please enter your name");
+
+      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+      ws = new WebSocket(`${protocol}://${window.location.host}/ws/${username}`);
+
+      ws.onopen = () => {
+        appendSystemMessage(`✅ Connected as ${username}`);
+        chatControls.style.display = "flex";
+        connectBtn.disabled = true;
+        usernameInput.disabled = true;
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        appendMessage(data.message, data.from === "You" ? "sent" : "received", data.from);
+      };
+
+      ws.onclose = () => appendSystemMessage("❌ Disconnected");
+    };
+
+    sendBtn.onclick = () => {
+      const message = messageInput.value.trim();
+      const toUser = receiverInput.value.trim();
+      if (!message || !toUser) return alert("Please enter receiver and message");
+
+      ws.send(JSON.stringify({ to: toUser, message }));
+      messageInput.value = "";
+    };
+
+    function appendMessage(text, type, sender = "") {
+      const msgDiv = document.createElement("div");
+      msgDiv.classList.add("message", type);
+      msgDiv.innerHTML = type === "received"
+        ? `<b>${sender}:</b> ${text}`
+        : `${text}`;
+      chatBox.appendChild(msgDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function appendSystemMessage(text) {
+      const msgDiv = document.createElement("div");
+      msgDiv.classList.add("message", "system");
+      msgDiv.textContent = text;
+      chatBox.appendChild(msgDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    messageInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") sendBtn.click();
+    });
+  </script>
+</body>
+</html>
